@@ -1,6 +1,6 @@
-streamlit==any
-pandas==any
-streamlit_lottie==any
+streamlit==1.41.1
+pandas==2.2.3
+streamlit-lottie==0.0.5
 json==any
-plotly==any
-requests==any
+plotly==5.24.1
+requests==2.32.3
