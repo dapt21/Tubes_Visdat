@@ -1,6 +1,6 @@
+json
+requests
 streamlit
 pandas
 streamlit-lottie
-json
 plotly
-requests
