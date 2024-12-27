@@ -24,6 +24,19 @@ data = data[
 data = data[data['Location'] != 'Indonesia'].reset_index(drop=True)
 data['Date'] = pd.to_datetime(data['Date'], format='%m/%d/%Y')
 
+# Filter untuk data Plot
+dataPlot = pd.DataFrame(columns=['Location ISO Code', 'Location', 'Province', 'Total Cases', 'Total Deaths', 'Total Recovered'])
+for isoCode in data['Location ISO Code'].unique():
+    temp = {"Location ISO Code": [isoCode], 'Location': [''], 'Province': [''], "Total Cases": [0], "Total Deaths": [0], "Total Recovered": [0]}
+    for i in range(len(data)):
+        if data['Location ISO Code'][i] == isoCode:
+            temp['Location'][0] = data['Location'][i]
+            temp['Province'][0] = data['Province'][i].upper()
+            temp['Total Cases'][0] += data['New Cases'][i]
+            temp['Total Deaths'][0] += data['New Deaths'][i]
+            temp['Total Recovered'][0] += data['New Recovered'][i]
+    dataPlot = pd.concat([dataPlot, pd.DataFrame(temp)]).reset_index(drop=True)
+
 st.title("Kasus Covid di Indonesia")
 col1, col2 = st.columns([18, 4])
 with col1:
@@ -41,19 +54,6 @@ with col2:
 geojson = requests.get(
     "https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province-simple.json"
 ).json()
-
-# Filter untuk data Plot
-dataPlot = pd.DataFrame(columns=['Location ISO Code', 'Location', 'Province', 'Total Cases', 'Total Deaths', 'Total Recovered'])
-for isoCode in data['Location ISO Code'].unique():
-    temp = {"Location ISO Code": [isoCode], 'Location': [''], 'Province': [''], "Total Cases": [0], "Total Deaths": [0], "Total Recovered": [0]}
-    for i in range(len(data)):
-        if data['Location ISO Code'][i] == isoCode:
-            temp['Location'][0] = data['Location'][i]
-            temp['Province'][0] = data['Province'][i].upper()
-            temp['Total Cases'][0] += data['New Cases'][i]
-            temp['Total Deaths'][0] += data['New Deaths'][i]
-            temp['Total Recovered'][0] += data['New Recovered'][i]
-    dataPlot = pd.concat([dataPlot, pd.DataFrame(temp)]).reset_index(drop=True)
 
 fig = go.Figure(
     data = go.Choropleth(
