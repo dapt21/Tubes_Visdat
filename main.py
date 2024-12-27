@@ -109,7 +109,7 @@ dataBulan2021['Date'] = dataBulan2021['Date'].dt.month_name()
 dataBulan2022 = dataBulan[pd.DatetimeIndex(dataBulan['Date']).year == 2022]
 dataBulan2022['Date'] = dataBulan2022['Date'].dt.month_name()
 
-provinsi = st.selectbox("Pilih provinsi", dataBulan['Province'].unique().tolist())
+provinsi = st.selectbox("Pilih provinsi", dataBulan['Province'].unique().tolist(), key = 0)
 
 fig = go.Figure()
 fig.add_trace(
@@ -282,71 +282,71 @@ st.write("""
     menjadi sumber penularan.
 """)
 
-fig = make_subplots(
-    rows = 1, 
-    cols = 3, 
-    specs=[
-        [
-            {'type':'domain'}, 
-            {'type':'domain'}, 
-            {'type':'domain'}
-        ]
-    ]
-)
+st.subheader("Lalu, bagaimana perbandingan sembuh dan mati akibat Covid?")
+st.write("Berikut adalah graph perbandingan sembuh dan mati yang diakibatkan oleh covid:")
+
+provinsi2 = st.selectbox("Pilih provinsi", dataBulan['Province'].unique().tolist(), key = 1)
+
+angkaMati = dataTahun['New Deaths'][dataTahun['Province'] == provinsi2]
+angkaSembuh = dataTahun['New Recovered'][dataTahun['Province'] == provinsi2]
+angkaKasus = dataTahun['New Cases'][dataTahun['Province'] == provinsi2]
+
+persenMati = (angkaMati.iloc[0]/angkaKasus.iloc[0]) * 100
+persenSembuh = (angkaSembuh.iloc[0]/angkaKasus.iloc[0]) * 100
+
+fig = go.Figure()
 
 fig.add_trace(
-    go.Pie(
-        labels = dataTahun2020['Province'],
-        values = dataTahun2020['New Recovered'],
-        name="Sembuh"
-    ),
-    1, 1
+    go.Scatter(
+        x = dataTahun['Date'][dataTahun['Province'] == provinsi2],
+        y = dataTahun['New Deaths'][dataTahun['Province'] == provinsi2],
+        mode = 'lines+markers',
+        name = 'Mati',
+        line = dict(
+            color = 'red',
+            width = 2,
+        ),
+        opacity = 0.6
+    )
 )
 fig.add_trace(
-    go.Pie(
-        labels = dataTahun2021['Province'],
-        values = dataTahun2021['New Recovered'],
-        name="Sembuh"
-    ),
-    1, 2
+    go.Scatter(
+        x = dataTahun['Date'][dataTahun['Province'] == provinsi2],
+        y = dataTahun['New Recovered'][dataTahun['Province'] == provinsi2],
+        mode = 'lines+markers',
+        name = 'Sembuh',
+        line = dict(
+            color = 'blue',
+            width = 2,
+        ),
+        opacity = 0.6
+    )
 )
 fig.add_trace(
-    go.Pie(
-        labels = dataTahun2022['Province'],
-        values = dataTahun2022['New Recovered'],
-        name="Sembuh"
-    ),
-    1, 3
+    go.Scatter(
+        x = dataTahun['Date'][dataTahun['Province'] == provinsi2],
+        y = dataTahun['New Cases'][dataTahun['Province'] == provinsi2],
+        mode = 'lines+markers',
+        name = 'Kasus Covid',
+        line = dict(
+            color = 'orange',
+            width = 2,
+        ),
+        opacity = 0.6
+    )
 )
-
-fig.update_traces(hole=.4, hoverinfo="label+value+percent")
 fig.update_layout(
-    title_text="Sembuh dari covid di tahun",
-    annotations=[
-        dict(
-            text='2020', 
-            x=sum(fig.get_subplot(1, 1).x) / 2, 
-            y=0.5,
-            font_size=20, 
-            showarrow=False, 
-            xanchor="center"
-        ),
-        dict(
-            text='2021', 
-            x=sum(fig.get_subplot(1, 2).x) / 2, 
-            y=0.5,
-            font_size=20, 
-            showarrow=False, 
-            xanchor="center"
-        ),
-        dict(
-            text='2022', 
-            x=sum(fig.get_subplot(1, 3).x) / 2, 
-            y=0.5,
-            font_size=20, 
-            showarrow=False, 
-            xanchor="center"
-        )
-    ]
+    title=dict(
+        text=f'Provinsi {provinsi2}, memiliki tingkat mati: {persenMati:.2f}% dan tingkat kesembuhan: {persenSembuh:.2f}%'
+    ),
+    xaxis = dict(
+        tickmode='array', 
+        tickvals = dataTahun['Date'][dataTahun['Province'] == provinsi2], 
+        ticktext = [2020, 2021, 2022], 
+    ),
+    font=dict(size=18, color="black")
 )
 st.plotly_chart(fig)
+
+tyImg = get_lottieImg('assets/ThanksYou.json')
+st_lottie(tyImg)
