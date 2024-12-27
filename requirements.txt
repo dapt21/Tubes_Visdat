@@ -1,6 +1,6 @@
-streamlit
-pandas
-streamlit_lottie
-json
-plotly
-requests
+streamlit==any
+pandas==any
+streamlit_lottie==any
+json==any
+plotly==any
+requests==any
