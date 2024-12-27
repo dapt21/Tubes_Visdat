@@ -5,14 +5,26 @@ import plotly.express as px
 from streamlit_lottie import st_lottie
 import json
 import plotly.graph_objects as go
+import requests
+from plotly.subplots import make_subplots
 
 def get_lottieImg(path):
     with open(path, 'r') as f:
         return json.load(f)
 
-data = pd.read_csv('dataCovid.csv')
+data = pd.read_csv('covidIndonesia.csv')
+data = data[
+    [
+        'Date', 'Location ISO Code', 
+        'Location', 'Longitude', 'Latitude', 
+        'Province', 'Island', 'New Cases', 
+        'New Deaths', 'New Recovered'
+    ]
+]
+data = data[data['Location'] != 'Indonesia'].reset_index(drop=True)
+data['Date'] = pd.to_datetime(data['Date'], format='%m/%d/%Y')
 
-st.title("Kasus Covid di Seluruh Dunia")
+st.title("Kasus Covid di Indonesia")
 col1, col2 = st.columns([18, 4])
 with col1:
     st.write("""
@@ -25,44 +37,316 @@ with col2:
     coronaImg = get_lottieImg('assets/Corona.json')
     st_lottie(coronaImg)
 
-col1, col2 = st.columns([20, 8])
+# indonesia geojson
+geojson = requests.get(
+    "https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province-simple.json"
+).json()
+
+# Filter untuk data Plot
+dataPlot = pd.DataFrame(columns=['Location ISO Code', 'Location', 'Province', 'Total Cases', 'Total Deaths', 'Total Recovered'])
+for isoCode in data['Location ISO Code'].unique():
+    temp = {"Location ISO Code": [isoCode], 'Location': [''], 'Province': [''], "Total Cases": [0], "Total Deaths": [0], "Total Recovered": [0]}
+    for i in range(len(data)):
+        if data['Location ISO Code'][i] == isoCode:
+            temp['Location'][0] = data['Location'][i]
+            temp['Province'][0] = data['Province'][i].upper()
+            temp['Total Cases'][0] += data['New Cases'][i]
+            temp['Total Deaths'][0] += data['New Deaths'][i]
+            temp['Total Recovered'][0] += data['New Recovered'][i]
+    dataPlot = pd.concat([dataPlot, pd.DataFrame(temp)]).reset_index(drop=True)
+
+fig = go.Figure(
+    data = go.Choropleth(
+        geojson = geojson,
+        featureidkey="properties.Propinsi",
+        locations = dataPlot['Province'],
+        z = dataPlot['Total Deaths'],
+        colorscale = "Reds",
+        colorbar_title = "Total Kematian",
+    )
+)
+fig.update_geos(fitbounds="locations", visible=False)
+fig.update_layout(
+    title='Total Kematian oleh Covid di Indonesia', 
+)
+fig.update_coloraxes(colorbar={'orientation':'h', 'thickness':20, 'y': -0.3, 'x':0.4, 'xanchor': 'center'})
+st.plotly_chart(fig)
+
+col1, col2 = st.columns([1, 4])
 with col1:
-    fig = px.choropleth(
-    data, 
-    locationmode="country names", 
-    locations="Country/Region", 
-    color="TotalDeaths",
-    hover_name="Country/Region",
-    hover_data="TotalDeaths",
-    color_continuous_scale=px.colors.sequential.Plasma,
-    )
-    fig.update_geos(showcountries=True, countrycolor="darkgrey")
-    fig.update_layout(
-        title='Total Kematian oleh Covid Diseluruh Dunia', 
-        geo=dict(showframe=False, showcoastlines=False, projection_type='equirectangular'),
-        coloraxis_colorbar=dict(
-            title='Total Deaths', 
-            x=0, y=-0.1, 
-            xanchor='left', yanchor='bottom',
-            len=0.8
-        )
-    )
-    fig.update_coloraxes(colorbar={'orientation':'h', 'thickness':20, 'y': -0.3, 'x':0.4, 'xanchor': 'center'})
-    st.plotly_chart(fig)
+    deathImg = get_lottieImg('assets/Death.json')
+    st_lottie(deathImg)
 with col2:
-    temp = data.sort_values(by='TotalDeaths', ascending=False).reset_index(drop=True)[['Country/Region','TotalDeaths']]
-    dataPie = temp.iloc[:15]
-    dataPie.loc[len(dataPie) + 1] = ['other', int(temp.iloc[15:]['TotalDeaths'].sum(axis=0))]
-    dataPie.reset_index(drop=True)
+    totalKematian = dataPlot['Total Deaths'].sum()
+    jawaTengah = dataPlot['Total Deaths'][dataPlot['Location']=='Jawa Tengah']
+    jawaTimur = dataPlot['Total Deaths'][dataPlot['Location']=='Jawa Timur']
+    jawaBarat = dataPlot['Total Deaths'][dataPlot['Location']=='Jawa Barat']
+    st.write(f"""
+        Total kematian oleh covid-19 di Indonesia mencapai {totalKematian:,}. Pada graph di atas, terdapat 3 kota 
+        yang memiliki tingkat kematian terbanyak oleh covid-19: 1. Jawa tengah, 2. Jawa Timur, 3. Jawa barat.
+        Total kematian yang diakibatkan oleh covid-19 di Jawa Tengah sebanyak {jawaTengah.iloc[0]:,}, di Jawa Timur sebanyak {jawaTimur.iloc[0]:,}, 
+        dan di Jawa Barat sebanyak {jawaBarat.iloc[0]:,}.
+    """)
 
-    fig = px.pie(
-        dataPie,
-        labels="Country/Region",
-        values='TotalDeaths',
-        names='Country/Region',
+dataBulan = data[
+    [
+        'Date', 'Province', 'New Cases', 
+        'New Deaths', 'New Recovered'
+    ]
+]
+
+st.subheader('Data Covid Tiap Provinsi')
+dataBulan['Date'] = dataBulan['Date'].dt.strftime('%m/%Y')
+dataBulan['Date'] = pd.to_datetime(dataBulan['Date'], format='%m/%Y')
+dataBulan = dataBulan.groupby(['Date', 'Province']).sum().reset_index()
+
+dataBulan2020 = dataBulan[pd.DatetimeIndex(dataBulan['Date']).year == 2020]
+dataBulan2020['Date'] = dataBulan2020['Date'].dt.month_name()
+
+dataBulan2021 = dataBulan[pd.DatetimeIndex(dataBulan['Date']).year == 2021]
+dataBulan2021['Date'] = dataBulan2021['Date'].dt.month_name()
+
+dataBulan2022 = dataBulan[pd.DatetimeIndex(dataBulan['Date']).year == 2022]
+dataBulan2022['Date'] = dataBulan2022['Date'].dt.month_name()
+
+provinsi = st.selectbox("Pilih provinsi", dataBulan['Province'].unique().tolist())
+
+fig = go.Figure()
+fig.add_trace(
+    go.Bar(
+        x = dataBulan2021['Date'][dataBulan2021['Province'] == provinsi],
+        y = dataBulan2021['New Deaths'][dataBulan2021['Province'] == provinsi],
+        text = dataBulan2021['New Deaths'][dataBulan2021['Province'] == provinsi],
+        name = "Tahun 2021",
+        marker_color ='red',
+        opacity = 0.6,
+        width=0.3,
     )
-    fig.update({"layout_showlegend": False})
-    st.plotly_chart(fig)
+)
+fig.add_trace(
+    go.Bar(
+        x = dataBulan2020['Date'][dataBulan2020['Province'] == provinsi],
+        y = dataBulan2020['New Deaths'][dataBulan2020['Province'] == provinsi],
+        text = dataBulan2020['New Deaths'][dataBulan2020['Province'] == provinsi],
+        name = "Tahun 2020",
+        marker_color = 'orange',
+        opacity = 0.6,
+        width=0.3,
+    )
+)
+fig.add_trace(
+    go.Bar(
+        x = dataBulan2022['Date'][dataBulan2022['Province'] == provinsi],
+        y = dataBulan2022['New Deaths'][dataBulan2022['Province'] == provinsi],
+        text = dataBulan2022['New Deaths'][dataBulan2022['Province'] == provinsi],
+        name = "Tahun 2022",
+        marker_color = 'blue',
+        opacity = 0.6,
+        width=0.3,
+    )
+)
+fig.update_traces(
+    texttemplate='%{text:.2s}',
+    textfont_size=12, 
+    textangle=0, 
+    textposition="outside", 
+    cliponaxis=False,
+)
+fig.update_layout(
+    title=dict(
+        text=f'Total Kematian di Provinsi {provinsi} dari bulan ke bulan'
+    ),
+    xaxis=dict(
+        title=dict(
+            text='Bulan'
+        )
+    ),
+    yaxis=dict(
+        title=dict(
+            text='Total Kematian'
+        )
+    ),
+    legend=dict(
+        x=0,
+        y=1.0,
+    ),
+    barmode='group',
+    bargap=0.15,
+    bargroupgap=0.1
+)
+st.plotly_chart(fig)
 
-totalDeath = int(data['TotalDeaths'].sum(axis=0))
-st.write("Total kematian yang diakibatkan oleh Covid-19 di seluruh dunia adalah: ", totalDeath, "")
+dataTahun = data[
+    [
+        'Date', 'Province', 'New Cases', 
+        'New Deaths', 'New Recovered'
+    ]
+]
+dataTahun['Date'] = dataTahun['Date'].dt.strftime('%Y')
+dataTahun['Date'] = pd.to_datetime(dataTahun['Date'], format='%Y')
+dataTahun['Date'] = dataTahun['Date'].dt.year.astype(int)
+dataTahun = dataTahun.groupby(['Date', 'Province']).sum().reset_index()
+
+dataTahun2020 = dataTahun[dataTahun['Date'] == 2020]
+dataTahun2021 = dataTahun[dataTahun['Date'] == 2021]
+dataTahun2022 = dataTahun[dataTahun['Date'] == 2022]
+
+fig = go.Figure()
+
+fig.add_trace(
+    go.Bar(
+        x = dataTahun2020['Date'][dataTahun2020['Province'] == provinsi],
+        y = dataTahun2020['New Deaths'][dataTahun2020['Province'] == provinsi],
+        text = dataTahun2020['New Deaths'][dataTahun2020['Province'] == provinsi],
+        name = "Tahun 2020",
+        marker_color ='orange',
+        opacity = 0.6,
+        width=0.3,
+    )
+)
+fig.add_trace(
+    go.Bar(
+        x = dataTahun2021['Date'][dataTahun2021['Province'] == provinsi],
+        y = dataTahun2021['New Deaths'][dataTahun2021['Province'] == provinsi],
+        text = dataTahun2021['New Deaths'][dataTahun2021['Province'] == provinsi],
+        name = "Tahun 2021",
+        marker_color ='red',
+        opacity = 0.6,
+        width=0.3,
+    )
+)
+fig.add_trace(
+    go.Bar(
+        x = dataTahun2022['Date'][dataTahun2022['Province'] == provinsi],
+        y = dataTahun2022['New Deaths'][dataTahun2022['Province'] == provinsi],
+        text = dataTahun2022['New Deaths'][dataTahun2022['Province'] == provinsi],
+        name = "Tahun 2022",
+        marker_color ='blue',
+        opacity = 0.6,
+        width=0.3,
+    )
+)
+
+fig.update_traces(
+    texttemplate='%{text:.2s}',
+    textfont_size=12, 
+    textangle=0, 
+    textposition="outside", 
+    cliponaxis=False,
+)
+fig.update_layout(
+    title=dict(
+        text=f'Total Kematian di Provinsi {provinsi} dari tahun ke tahun'
+    ),
+    xaxis=dict(
+        title=dict(
+            text='Tahun'
+        ),
+        tickmode = 'array',
+        tickvals = [2020, 2021, 2022],
+        ticktext = ["2020", "2021", "2022"],
+    ),
+    yaxis=dict(
+        title=dict(
+            text='Total Kematian'
+        )
+    ),
+    legend=dict(
+        x=0,
+        y=1.0,
+    ),
+    barmode='group',
+    bargap=0.15,
+    bargroupgap=0.1
+)
+st.plotly_chart(fig)
+
+st.subheader("Apakah covid dapat disembuhkan?")
+col1, col2 = st.columns([3, 2])
+
+protectImg = get_lottieImg('assets/Protection.json')
+st_lottie(protectImg)
+
+st.write("""
+    Iya. pada tahun 2021, menurut WHO terdapat sebanyak 80% total kasus covid yang muncul 
+    menimbulkan gejala ringan saja. Artinya, kasus-kasus yang muncul melibatkan gejala 
+    ringan, seperti demam, batuk, atau sesak napas yang dapat sembuh dengan sendirinya. 
+    Selain tidak menimbulkan gejala yang berarti, maka akan semakin besar pula peluang 
+    untuk bisa sembuh dengan lebih cepat. Bagi pengidap positif dengan gejala ringan yang 
+    muncul, mereka akan membutuhkan waktu pemulihan selama dua minggu lamanya. 
+    Sedangkan gejala dengan intensitas sedang hingga kritis, akan membutuhkan 
+    waktu lebih lama lagi, yaitu antara 3-6 minggu masa penyembuhan. Namun pada zaman sekarang,
+    vaksin covid-19 telah ditemukan. Tujuan dari vaksin sendiri ialah meningkatkan kekebalan 
+    seseorang secara aktif terhadap suatu penyakit, sehingga apabila suatu saat terpajan 
+    dengan penyakit tersebut tidak akan sakit atau hanya mengalami sakit ringan dan tidak 
+    menjadi sumber penularan.
+""")
+
+fig = make_subplots(
+    rows = 1, 
+    cols = 3, 
+    specs=[
+        [
+            {'type':'domain'}, 
+            {'type':'domain'}, 
+            {'type':'domain'}
+        ]
+    ]
+)
+
+fig.add_trace(
+    go.Pie(
+        labels = dataTahun2020['Province'],
+        values = dataTahun2020['New Recovered'],
+        name="Sembuh"
+    ),
+    1, 1
+)
+fig.add_trace(
+    go.Pie(
+        labels = dataTahun2021['Province'],
+        values = dataTahun2021['New Recovered'],
+        name="Sembuh"
+    ),
+    1, 2
+)
+fig.add_trace(
+    go.Pie(
+        labels = dataTahun2022['Province'],
+        values = dataTahun2022['New Recovered'],
+        name="Sembuh"
+    ),
+    1, 3
+)
+
+fig.update_traces(hole=.4, hoverinfo="label+value+percent")
+fig.update_layout(
+    title_text="Sembuh dari covid di tahun",
+    annotations=[
+        dict(
+            text='2020', 
+            x=sum(fig.get_subplot(1, 1).x) / 2, 
+            y=0.5,
+            font_size=20, 
+            showarrow=False, 
+            xanchor="center"
+        ),
+        dict(
+            text='2021', 
+            x=sum(fig.get_subplot(1, 2).x) / 2, 
+            y=0.5,
+            font_size=20, 
+            showarrow=False, 
+            xanchor="center"
+        ),
+        dict(
+            text='2022', 
+            x=sum(fig.get_subplot(1, 3).x) / 2, 
+            y=0.5,
+            font_size=20, 
+            showarrow=False, 
+            xanchor="center"
+        )
+    ]
+)
+st.plotly_chart(fig)
