@@ -285,11 +285,16 @@ st.write("Berikut adalah graph perbandingan sembuh dan mati yang diakibatkan ole
 provinsi2 = st.selectbox("Pilih provinsi", dataBulan['Province'].unique().tolist(), key = 1)
 
 angkaMati = dataTahun['New Deaths'][dataTahun['Province'] == provinsi2]
-angkaSembuh = dataTahun['New Recovered'][dataTahun['Province'] == provinsi2]
-angkaKasus = dataTahun['New Cases'][dataTahun['Province'] == provinsi2]
+angkaMati = angkaMati.sum()
 
-persenMati = (angkaMati.iloc[0]/angkaKasus.iloc[0]) * 100
-persenSembuh = (angkaSembuh.iloc[0]/angkaKasus.iloc[0]) * 100
+angkaSembuh = dataTahun['New Recovered'][dataTahun['Province'] == provinsi2]
+angkaSembuh = angkaSembuh.sum()
+
+angkaKasus = dataTahun['New Cases'][dataTahun['Province'] == provinsi2]
+angkaKasus = angkaKasus.sum()
+
+persenMati = (angkaMati/angkaKasus) * 100
+persenSembuh = (angkaSembuh/angkaKasus) * 100
 
 fig = go.Figure()
 
