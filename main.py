@@ -1,12 +1,9 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import plotly.express as px
 from streamlit_lottie import st_lottie
 import json
 import plotly.graph_objects as go
 import requests
-from plotly.subplots import make_subplots
 
 def get_lottieImg(path):
     with open(path, 'r') as f:
